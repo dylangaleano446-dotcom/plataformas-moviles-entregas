@@ -41,4 +41,8 @@ media screen and(min-width:800px) and (max-width:400px){
     object-fit: cover;
   }
 }
-  
+media (min-resolution: 2.01dppx){
+  article{
+    background-color: #667;
+  }
+}
