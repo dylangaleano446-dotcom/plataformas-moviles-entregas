@@ -1,6 +1,6 @@
 body{
     background-color: #222;
-    color: #eee;
+    color: #ee6;
 }
 h1{
     text-align: center;
@@ -8,7 +8,7 @@ h1{
 p{
     font-family: sans-serif;
 }
-h1,h2,h3{
+h1,h2,h3,h4,h5,h6{
     color:#eee;
 }
 strong{
@@ -26,23 +26,26 @@ strong{
 }
 #og-trilogy{ list-style-type: circle;
 }
-.movies-list{
-    padding-left: 20px;
+#og-trilogy + 3 + ul{
+    padding-left:60px;
 }
-.movies-list li:last-child{
-    margin-top: 20px;
+#og-trilogy + h3 + ul + h3 + ul li:last-child{
+    margin-top:20px;
 }
-h1,h2,h3{
+h1,h2,h3,h4,h5,h6{
     text-transform: uppercase;
 }
 #first-line{
     color: #efe;
 }
 h1:hover{
-    color: yellow;
+    color: #ee6;
 }
 a:visited{
     color:gray;
+}
+a:not (href){
+    font-style:italic;
 }
 .moviles-list {
     background-color: #111;
