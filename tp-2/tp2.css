@@ -26,8 +26,7 @@ strong{
 }
 #og-trilogy{ list-style-type: circle;
 }
-#og-trilogy + 3 + ul{
-    padding-left:60px;
+#og-trilogy + h3 + ul{ padding-left:60px;
 }
 #og-trilogy + h3 + ul + h3 + ul li:last-child{
     margin-top:20px;
@@ -35,8 +34,7 @@ strong{
 h1,h2,h3,h4,h5,h6{
     text-transform: uppercase;
 }
-#first-line{
-    color: #efe;
+p:first-of-type::first-line { color: #efe; }
 }
 h1:hover{
     color: #ee6;
@@ -44,12 +42,8 @@ h1:hover{
 a:visited{
     color:gray;
 }
-a:not (href){
-    font-style:italic;
-}
-.moviles-list {
-    background-color: #111;
-}
-.movies-list{
-    background-color: #333;
-}
+a:not [(href)]{ font-style:italic;}
+
+.movies-list li:nth-child(odd) { background-color: #111; }
+
+.movies-list li:nth-child(even) { background-color: #333; }
