@@ -30,20 +30,13 @@ body{
     background-color:#DDD;
   }
 }
-@media (prefers-color-scheme:light){
-  body,
-  h1{
-    color:#111;
-    background-color:#DDD;
-    }
-  }
 @media screen and (hover:none){
   a{
     background-color:#212;
     padding: 2px 5px;
   }
 }
-@media screen and(min-width:800px) and (max-width:899px){
+@media screen and (min-width:800px) and (max-width:899px){
   img{
     display:none;
   }
