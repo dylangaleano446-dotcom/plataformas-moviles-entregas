@@ -172,7 +172,16 @@ console.log("contarAprobados([10, 4, 6, 7, 1, 9]): ", contarAprobados([10, 4, 6,
  * 13 - filtrarSoloTruthy
  */
 function filtrarSoloTruthy(listaDeValores) {
-    return listaDeValores.filter(Boolean);
+    let valoresTruthy = [];
+
+    for (let i = 0; i <
+listaDeValores.length; i++) {
+        if(listaDeValores[i]) {
+
+valoresTruthy.push(listaDeValores[i]);
+        }
+    }
+    return valoresTruthy;
 }
 console.log("filtrarSoloTruthy(): ", filtrarSoloTruthy(["Hola", "", null, 1, 0, -1, undefined, [], {}]));
 
