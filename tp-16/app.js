@@ -5,6 +5,7 @@ const LIST_FIELDS = "id,title,artist_display,date_display,image_id";
 const DETAIL_FIELDS =
   "id,title,artist_display,date_display,place_of_origin,medium_display,dimensions,credit_line,description,short_description,image_id";
 
+// Categorías (la etiqueta es lo que ve la persona; "q" es lo que se busca en la API)
 const CATEGORIES = [
   { label: "Impresionismo", q: "impressionism" },
   { label: "Retratos", q: "portrait" },
@@ -14,7 +15,7 @@ const CATEGORIES = [
   { label: "Gatos", q: "cat" },
 ];
 
-// ---------- DOM ----------//
+// ---------- DOM ----------
 const grid = document.getElementById("grid");
 const summary = document.getElementById("summary");
 const categoriesBox = document.getElementById("categories");
@@ -33,7 +34,7 @@ const modal = new bootstrap.Modal(modalEl);
 const detailTitle = document.getElementById("detail-title");
 const detailBody = document.getElementById("detail-body");
 
-// ---------- Estado ----------//
+// ---------- Estado ----------
 const state = {
   query: "",
   page: 0,
@@ -41,9 +42,10 @@ const state = {
   total: 0,
   iiif: DEFAULT_IIIF,
   loading: false,
-  requestId: 0, 
+  requestId: 0, // evita mezclar resultados si se cambia de búsqueda mientras carga
 };
 
+// ---------- Utilidades ----------
 const escapeHTML = (text = "") =>
   String(text).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -63,6 +65,7 @@ async function fetchJSON(url) {
   return response.json();
 }
 
+// ---------- Búsqueda en la API ----------
 function searchURL(query, page) {
   const params = new URLSearchParams({
     q: query,
@@ -70,11 +73,12 @@ function searchURL(query, page) {
     limit: PAGE_SIZE,
     fields: LIST_FIELDS,
   });
- 
+  // Solo obras de dominio público y que tengan imagen
   params.append("query[term][is_public_domain]", "true");
   return ${API_URL}/artworks/search?${params};
 }
 
+// ---------- Render ----------
 function createCard(art) {
   const col = document.createElement("div");
   col.className = "col";
@@ -119,6 +123,7 @@ function setLoadMoreLoading(isLoading) {
   loadMoreLabel.textContent = isLoading ? "Cargando…" : "Ver más obras";
 }
 
+// ---------- Carga ----------
 async function loadPage(isFirstPage) {
   if (state.loading && !isFirstPage) return;
   const requestId = ++state.requestId;
@@ -138,7 +143,7 @@ async function loadPage(isFirstPage) {
   try {
     const nextPage = isFirstPage ? 1 : state.page + 1;
     const data = await fetchJSON(searchURL(state.query, nextPage));
-    if (requestId !== state.requestId) return;
+    if (requestId !== state.requestId) return; // llegó tarde, se descarta
 
     state.page = data.pagination.current_page;
     state.totalPages = data.pagination.total_pages;
@@ -173,6 +178,7 @@ function startSearch(query) {
   loadPage(true);
 }
 
+// ---------- Modal de detalle ----------
 async function openDetail(id) {
   detailTitle.textContent = "Cargando…";
   detailBody.innerHTML = `
@@ -216,7 +222,7 @@ async function openDetail(id) {
   }
 }
 
-// ---------- Categorías ---------- //
+// ---------- Categorías ----------
 function setActiveChip(label) {
   categoriesBox.querySelectorAll(".chip").forEach((chip) => {
     const active = chip.dataset.label === label;
@@ -235,7 +241,7 @@ CATEGORIES.forEach(({ label, q }) => {
   categoriesBox.appendChild(chip);
 });
 
-// ---------- Eventos ----------//
+// ---------- Eventos ----------
 categoriesBox.addEventListener("click", (event) => {
   const chip = event.target.closest(".chip");
   if (!chip) return;
@@ -259,6 +265,6 @@ grid.addEventListener("click", (event) => {
 loadMoreBtn.addEventListener("click", () => loadPage(false));
 retryBtn.addEventListener("click", () => loadPage(state.page === 0));
 
-
+// ---------- Inicio ----------
 setActiveChip(CATEGORIES[0].label);
 startSearch(CATEGORIES[0].q);
