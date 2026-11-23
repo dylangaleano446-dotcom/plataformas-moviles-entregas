@@ -2,17 +2,16 @@ const API_URL = "https://api.artic.edu/api/v1";
 const DEFAULT_IIIF = "https://www.artic.edu/iiif/2";
 const PAGE_SIZE = 12;
 const LIST_FIELDS = "id,title,artist_display,date_display,image_id";
-const DETAIL_FIELDS =
-  "id,title,artist_display,date_display,place_of_origin,medium_display,dimensions,credit_line,description,short_description,image_id";
+const DETAIL_FIELDS = "id,title,artist_display,date_display,place_of_origin,medium_display,dimensions,credit_line,description,short_description,image_id";
 
-// Categorías (la etiqueta es lo que ve la persona; "q" es lo que se busca en la API)
+// Categorias: "label" es lo que ve la persona, "q" es lo que se busca en la API
 const CATEGORIES = [
   { label: "Impresionismo", q: "impressionism" },
   { label: "Retratos", q: "portrait" },
   { label: "Paisajes", q: "landscape" },
   { label: "Arte japonés", q: "japanese print" },
   { label: "Esculturas", q: "sculpture" },
-  { label: "Gatos", q: "cat" },
+  { label: "Gatos", q: "cat" }
 ];
 
 // ---------- DOM ----------
@@ -42,40 +41,45 @@ const state = {
   total: 0,
   iiif: DEFAULT_IIIF,
   loading: false,
-  requestId: 0, // evita mezclar resultados si se cambia de búsqueda mientras carga
+  requestId: 0
 };
 
 // ---------- Utilidades ----------
-const escapeHTML = (text = "") =>
-  String(text).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]));
+function escapeHTML(text) {
+  const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return String(text === undefined || text === null ? "" : text).replace(/[&<>"']/g, function (c) {
+    return map[c];
+  });
+}
 
-const imageURL = (imageId, width) =>
-  ${state.iiif}/${imageId}/full/${width},/0/default.jpg;
+function imageURL(imageId, width) {
+  return state.iiif + "/" + imageId + "/full/" + width + ",/0/default.jpg";
+}
 
-function htmlToText(html = "") {
-  const doc = new DOMParser().parseFromString(html, "text/html");
+function htmlToText(html) {
+  const doc = new DOMParser().parseFromString(html || "", "text/html");
   return doc.body.textContent.trim();
 }
 
 async function fetchJSON(url) {
   const response = await fetch(url);
-  if (!response.ok) throw new Error(La API respondió con el estado ${response.status});
+  if (!response.ok) {
+    throw new Error("La API respondió con el estado " + response.status);
+  }
   return response.json();
 }
 
-// ---------- Búsqueda en la API ----------
+// ---------- Busqueda en la API ----------
 function searchURL(query, page) {
   const params = new URLSearchParams({
     q: query,
-    page,
+    page: page,
     limit: PAGE_SIZE,
-    fields: LIST_FIELDS,
+    fields: LIST_FIELDS
   });
-  // Solo obras de dominio público y que tengan imagen
+  // Solo obras de dominio publico
   params.append("query[term][is_public_domain]", "true");
-  return ${API_URL}/artworks/search?${params};
+  return API_URL + "/artworks/search?" + params.toString();
 }
 
 // ---------- Render ----------
@@ -83,34 +87,40 @@ function createCard(art) {
   const col = document.createElement("div");
   col.className = "col";
   const title = escapeHTML(art.title || "Sin título");
+  const artist = escapeHTML((art.artist_display || "Artista desconocido").split("\n")[0]);
 
-  col.innerHTML = `
-    <article class="art-card">
-      <div class="art-mat">
-        <img src="${imageURL(art.image_id, 400)}" alt="${title}" loading="lazy">
-      </div>
-      <div class="art-caption">
-        <h2 class="art-title">${title}</h2>
-        <p class="art-artist">${escapeHTML(art.artist_display?.split("\n")[0] || "Artista desconocido")}</p>
-        <p class="art-date">${escapeHTML(art.date_display || "")}</p>
-        <button type="button" class="btn btn-outline-gallery btn-sm" data-id="${art.id}"
-                aria-label="Ver más información de ${title}">Ver más</button>
-      </div>
-    </article>`;
+  col.innerHTML =
+    '<article class="art-card">' +
+      '<div class="art-mat">' +
+        '<img src="' + imageURL(art.image_id, 400) + '" alt="' + title + '" loading="lazy">' +
+      '</div>' +
+      '<div class="art-caption">' +
+        '<h2 class="art-title">' + title + '</h2>' +
+        '<p class="art-artist">' + artist + '</p>' +
+        '<p class="art-date">' + escapeHTML(art.date_display || "") + '</p>' +
+        '<button type="button" class="btn btn-outline-gallery btn-sm" data-id="' + art.id + '" ' +
+          'aria-label="Ver más información de ' + title + '">Ver más</button>' +
+      '</div>' +
+    '</article>';
   return col;
 }
 
 function renderArtworks(list) {
   const fragment = document.createDocumentFragment();
-  list.forEach((art) => fragment.appendChild(createCard(art)));
+  list.forEach(function (art) {
+    fragment.appendChild(createCard(art));
+  });
   grid.appendChild(fragment);
 }
 
 function updateSummary() {
   const shown = grid.children.length;
-  summary.textContent = state.total
-    ? Mostrando ${shown} obras de ${state.total.toLocaleString("es-AR")} para “${state.query}”
-    : "";
+  if (state.total) {
+    summary.textContent = "Mostrando " + shown + " obras de " +
+      state.total.toLocaleString("es-AR") + " para “" + state.query + "”";
+  } else {
+    summary.textContent = "";
+  }
 }
 
 function updateLoadMore() {
@@ -126,7 +136,8 @@ function setLoadMoreLoading(isLoading) {
 // ---------- Carga ----------
 async function loadPage(isFirstPage) {
   if (state.loading && !isFirstPage) return;
-  const requestId = ++state.requestId;
+  state.requestId = state.requestId + 1;
+  const requestId = state.requestId;
   state.loading = true;
   errorBox.classList.add("d-none");
 
@@ -143,14 +154,16 @@ async function loadPage(isFirstPage) {
   try {
     const nextPage = isFirstPage ? 1 : state.page + 1;
     const data = await fetchJSON(searchURL(state.query, nextPage));
-    if (requestId !== state.requestId) return; // llegó tarde, se descarta
+    if (requestId !== state.requestId) return; // respuesta vieja, se descarta
 
     state.page = data.pagination.current_page;
     state.totalPages = data.pagination.total_pages;
     state.total = data.pagination.total;
-    state.iiif = data.config?.iiif_url || DEFAULT_IIIF;
+    state.iiif = (data.config && data.config.iiif_url) || DEFAULT_IIIF;
 
-    const withImage = data.data.filter((art) => art.image_id);
+    const withImage = data.data.filter(function (art) {
+      return art.image_id;
+    });
     renderArtworks(withImage);
 
     emptyMsg.classList.toggle("d-none", grid.children.length > 0);
@@ -158,7 +171,8 @@ async function loadPage(isFirstPage) {
     updateLoadMore();
   } catch (error) {
     if (requestId !== state.requestId) return;
-    errorText.textContent = No pudimos cargar las obras. ${error.message}. Revisá tu conexión e intentá de nuevo.;
+    errorText.textContent = "No pudimos cargar las obras. " + error.message +
+      ". Revisá tu conexión e intentá de nuevo.";
     errorBox.classList.remove("d-none");
   } finally {
     if (requestId === state.requestId) {
@@ -181,68 +195,80 @@ function startSearch(query) {
 // ---------- Modal de detalle ----------
 async function openDetail(id) {
   detailTitle.textContent = "Cargando…";
-  detailBody.innerHTML = `
-    <div class="text-center py-5" role="status">
-      <div class="spinner-border gallery-spinner"></div>
-    </div>`;
+  detailBody.innerHTML =
+    '<div class="text-center py-5" role="status">' +
+      '<div class="spinner-border gallery-spinner"></div>' +
+    '</div>';
   modal.show();
 
   try {
-    const { data } = await fetchJSON(${API_URL}/artworks/${id}?fields=${DETAIL_FIELDS});
+    const result = await fetchJSON(API_URL + "/artworks/" + id + "?fields=" + DETAIL_FIELDS);
+    const data = result.data;
     const description = htmlToText(data.description || data.short_description || "");
 
-    const rows = [
+    const fields = [
       ["Artista", data.artist_display],
       ["Fecha", data.date_display],
       ["Origen", data.place_of_origin],
       ["Técnica", data.medium_display],
       ["Dimensiones", data.dimensions],
-      ["Crédito", data.credit_line],
-    ]
-      .filter(([, value]) => value)
-      .map(([label, value]) => <dt>${label}</dt><dd>${escapeHTML(value)}</dd>)
-      .join("");
+      ["Crédito", data.credit_line]
+    ];
+
+    let rows = "";
+    fields.forEach(function (field) {
+      if (field[1]) {
+        rows += "<dt>" + field[0] + "</dt><dd>" + escapeHTML(field[1]) + "</dd>";
+      }
+    });
+
+    let descriptionHTML = "";
+    if (description) {
+      descriptionHTML =
+        '<h3 class="fs-6 fw-bold mt-4">Descripción</h3>' +
+        '<p class="detail-text">' + escapeHTML(description) + '</p>';
+    }
 
     detailTitle.textContent = data.title || "Sin título";
-    detailBody.innerHTML = `
-      <div class="row g-4">
-        <div class="col-12 col-lg-6">
-          <div class="detail-mat">
-            <img src="${imageURL(data.image_id, 843)}" alt="${escapeHTML(data.title)}">
-          </div>
-        </div>
-        <div class="col-12 col-lg-6">
-          <dl class="detail-list">${rows}</dl>
-          ${description ? <h3 class="fs-6 fw-bold mt-4">Descripción</h3><p class="detail-text">${escapeHTML(description)}</p> : ""}
-        </div>
-      </div>`;
+    detailBody.innerHTML =
+      '<div class="row g-4">' +
+        '<div class="col-12 col-lg-6">' +
+          '<div class="detail-mat">' +
+            '<img src="' + imageURL(data.image_id, 843) + '" alt="' + escapeHTML(data.title) + '">' +
+          '</div>' +
+        '</div>' +
+        '<div class="col-12 col-lg-6">' +
+          '<dl class="detail-list">' + rows + '</dl>' +
+          descriptionHTML +
+        '</div>' +
+      '</div>';
   } catch (error) {
     detailTitle.textContent = "No se pudo cargar la obra";
-    detailBody.innerHTML = <div class="alert alert-danger mb-0">${escapeHTML(error.message)}</div>;
+    detailBody.innerHTML = '<div class="alert alert-danger mb-0">' + escapeHTML(error.message) + '</div>';
   }
 }
 
-// ---------- Categorías ----------
+// ---------- Categorias ----------
 function setActiveChip(label) {
-  categoriesBox.querySelectorAll(".chip").forEach((chip) => {
+  categoriesBox.querySelectorAll(".chip").forEach(function (chip) {
     const active = chip.dataset.label === label;
     chip.classList.toggle("active", active);
     chip.setAttribute("aria-pressed", active);
   });
 }
 
-CATEGORIES.forEach(({ label, q }) => {
+CATEGORIES.forEach(function (category) {
   const chip = document.createElement("button");
   chip.type = "button";
   chip.className = "chip";
-  chip.textContent = label;
-  chip.dataset.label = label;
-  chip.dataset.q = q;
+  chip.textContent = category.label;
+  chip.dataset.label = category.label;
+  chip.dataset.q = category.q;
   categoriesBox.appendChild(chip);
 });
 
 // ---------- Eventos ----------
-categoriesBox.addEventListener("click", (event) => {
+categoriesBox.addEventListener("click", function (event) {
   const chip = event.target.closest(".chip");
   if (!chip) return;
   searchInput.value = "";
@@ -250,20 +276,25 @@ categoriesBox.addEventListener("click", (event) => {
   startSearch(chip.dataset.q);
 });
 
-searchForm.addEventListener("submit", (event) => {
+searchForm.addEventListener("submit", function (event) {
   event.preventDefault();
   if (!searchInput.value.trim()) return;
   setActiveChip(null);
   startSearch(searchInput.value);
 });
 
-grid.addEventListener("click", (event) => {
+grid.addEventListener("click", function (event) {
   const button = event.target.closest("button[data-id]");
   if (button) openDetail(button.dataset.id);
 });
 
-loadMoreBtn.addEventListener("click", () => loadPage(false));
-retryBtn.addEventListener("click", () => loadPage(state.page === 0));
+loadMoreBtn.addEventListener("click", function () {
+  loadPage(false);
+});
+
+retryBtn.addEventListener("click", function () {
+  loadPage(state.page === 0);
+});
 
 // ---------- Inicio ----------
 setActiveChip(CATEGORIES[0].label);
