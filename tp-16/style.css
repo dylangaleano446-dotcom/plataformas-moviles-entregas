@@ -1,0 +1,118 @@
+:root {
+ink: #1d1d1f;
+wall: #ffffff;
+mat: #ececea;
+accent: #2b3fd6;
+accent-dark: #1d2d9e;
+muted: #666a73;
+bs-body-font-family: "Archivo", system-ui, sans-serif;
+bs-body-bg: var(--wall);
+bs-body-color: var(--ink);
+}
+
+/* ---------- Encabezado ---------- */
+.gallery-header {
+  background: var(--ink);
+  color: #fff;
+  padding: 2.5rem 0 2rem;
+  border-bottom: 6px solid var(--accent);
+}
+
+.gallery-title {
+  font-weight: 800;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  letter-spacing: -.02em;
+  margin-bottom: .4rem;
+}
+
+.gallery-lead { color: #c9ccd4; max-width: 60ch; }
+
+.summary { color: var(--muted); font-family: "Archivo Narrow", sans-serif; font-size: 1.05rem; }
+.gallery-spinner { color: var(--accent); }
+
+/* ---------- Botones ---------- */
+.btn-gallery {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  padding: .55rem 1.5rem;
+}
+.btn-gallery:hover, .btn-gallery:focus-visible {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+  color: #fff;
+}
+.btn-gallery:disabled { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.btn-outline-gallery {
+  bs-btn-color: var(--ink);
+  bs-btn-border-color: var(--ink);
+  bs-btn-hover-bg: var(--ink);
+  bs-btn-hover-border-color: var(--ink);
+  bs-btn-hover-color: #fff;
+  bs-btn-active-bg: var(--ink);
+  bs-btn-active-color: #fff;
+  font-weight: 600;
+}
+
+.chip {
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: .3rem .9rem;
+  font-weight: 600;
+  font-size: .9rem;
+}
+.chip:hover { background: var(--mat); }
+.chip.active { background: var(--ink); color: #fff; }
+
+.form-control:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 .2rem rgba(43, 63, 214, .2);
+}
+
+/* ---------- Cartas: la obra enmarcada, con cartel debajo ---------- */
+.art-card { height: 100%; display: flex; flex-direction: column; }
+
+.art-mat {
+  background: var(--mat);
+  aspect-ratio: 4 / 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.1rem;
+}
+
+.art-mat img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+}
+
+.art-caption { padding: .8rem 0 0; display: flex; flex-direction: column; flex: 1; }
+.art-title { font-size: 1.05rem; font-weight: 700; line-height: 1.25; margin-bottom: .2rem; }
+.art-artist, .art-date {
+  font-family: "Archivo Narrow", sans-serif;
+  color: var(--muted);
+  font-size: .95rem;
+  margin: 0;
+}
+.art-caption .btn { margin-top: .8rem; align-self: flex-start; }
+
+/* ---------- Modal ---------- */
+.detail-mat {
+  background: var(--mat);
+  padding: 1.25rem;
+  text-align: center;
+}
+.detail-mat img { max-width: 100%; max-height: 70vh; box-shadow: 0 3px 14px rgba(0, 0, 0, .3); }
+
+.detail-list dt { font-weight: 700; margin-top: .6rem; }
+.detail-list dd { margin: 0; color: #333; }
+.detail-text { white-space: pre-line; }
+
+.gallery-footer { font-size: .9rem; color: var(--muted); }
+.gallery-footer a { color: var(--accent); }
