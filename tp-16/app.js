@@ -42,14 +42,15 @@ const state = {
   iiif: DEFAULT_IIIF,
   loading: false,
   requestId: 0
-};
+}
 
 // ---------- Utilidades ----------
 function escapeHTML(text) {
   const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
   return String(text === undefined || text === null ? "" : text).replace(/[&<>"']/g, function (c) {
     return map[c];
-  });
+  })
+}
 
 function imageURL(imageId, width) {
   return state.iiif + "/" + imageId + "/full/" + width + ",/0/default.jpg";
