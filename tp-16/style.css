@@ -1,13 +1,13 @@
 :root {
-ink: #1d1d1f;
-wall: #ffffff;
-mat: #ececea;
-accent: #2b3fd6;
-accent-dark: #1d2d9e;
-muted: #666a73;
-bs-body-font-family: "Archivo", system-ui, sans-serif;
-bs-body-bg: var(--wall);
-bs-body-color: var(--ink);
+  --ink: #1d1d1f;
+  --wall: #ffffff;
+  --mat: #ececea;
+  --accent: #2b3fd6;
+  --accent-dark: #1d2d9e;
+  --muted: #666a73;
+  --bs-body-font-family: "Archivo", system-ui, sans-serif;
+  --bs-body-bg: var(--wall);
+  --bs-body-color: var(--ink);
 }
 
 /* ---------- Encabezado ---------- */
@@ -46,13 +46,13 @@ bs-body-color: var(--ink);
 .btn-gallery:disabled { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .btn-outline-gallery {
-  bs-btn-color: var(--ink);
-  bs-btn-border-color: var(--ink);
-  bs-btn-hover-bg: var(--ink);
-  bs-btn-hover-border-color: var(--ink);
-  bs-btn-hover-color: #fff;
-  bs-btn-active-bg: var(--ink);
-  bs-btn-active-color: #fff;
+  --bs-btn-color: var(--ink);
+  --bs-btn-border-color: var(--ink);
+  --bs-btn-hover-bg: var(--ink);
+  --bs-btn-hover-border-color: var(--ink);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--ink);
+  --bs-btn-active-color: #fff;
   font-weight: 600;
 }
 
@@ -73,7 +73,6 @@ bs-body-color: var(--ink);
   box-shadow: 0 0 0 .2rem rgba(43, 63, 214, .2);
 }
 
-/* ---------- Cartas: la obra enmarcada, con cartel debajo ---------- */
 .art-card { height: 100%; display: flex; flex-direction: column; }
 
 .art-mat {
@@ -116,3 +115,7 @@ bs-body-color: var(--ink);
 
 .gallery-footer { font-size: .9rem; color: var(--muted); }
 .gallery-footer a { color: var(--accent); }
+
+.gallery-header { background-color: #1d1d1f; color: #ffffff; }
+.gallery-header .gallery-title { color: #ffffff; }
+.gallery-header .gallery-lead { color: #d5d8df; }
