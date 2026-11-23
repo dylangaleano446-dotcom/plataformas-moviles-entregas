@@ -50,7 +50,6 @@ function escapeHTML(text) {
   return String(text === undefined || text === null ? "" : text).replace(/[&<>"']/g, function (c) {
     return map[c];
   });
-}
 
 function imageURL(imageId, width) {
   return state.iiif + "/" + imageId + "/full/" + width + ",/0/default.jpg";
