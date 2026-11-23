@@ -1,7 +1,7 @@
 const API_URL = "https://api.artic.edu/api/v1";
 const DEFAULT_IIIF = "https://www.artic.edu/iiif/2";
 const PAGE_SIZE = 12;
-const LIST_FIELDS = "id,title,artist_display,date_display,image_id";
+const LIST_FIELDS = "id,title,artist_display,date_display,image_id,is_public_domain";
 const DETAIL_FIELDS = "id,title,artist_display,date_display,place_of_origin,medium_display,dimensions,credit_line,description,short_description,image_id";
 
 // Categorias: "label" es lo que ve la persona, "q" es lo que se busca en la API
@@ -42,14 +42,14 @@ const state = {
   iiif: DEFAULT_IIIF,
   loading: false,
   requestId: 0
-}
+};
 
 // ---------- Utilidades ----------
 function escapeHTML(text) {
   const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
   return String(text === undefined || text === null ? "" : text).replace(/[&<>"']/g, function (c) {
     return map[c];
-  })
+  });
 }
 
 function imageURL(imageId, width) {
@@ -77,8 +77,6 @@ function searchURL(query, page) {
     limit: PAGE_SIZE,
     fields: LIST_FIELDS
   });
-  // Solo obras de dominio publico
-  params.append("query[term][is_public_domain]", "true");
   return API_URL + "/artworks/search?" + params.toString();
 }
 
@@ -154,17 +152,17 @@ async function loadPage(isFirstPage) {
   try {
     const nextPage = isFirstPage ? 1 : state.page + 1;
     const data = await fetchJSON(searchURL(state.query, nextPage));
-    if (requestId !== state.requestId) return; // respuesta vieja, se descarta
+    if (requestId !== state.requestId) return;
 
     state.page = data.pagination.current_page;
     state.totalPages = data.pagination.total_pages;
     state.total = data.pagination.total;
     state.iiif = (data.config && data.config.iiif_url) || DEFAULT_IIIF;
 
-    const withImage = data.data.filter(function (art) {
-      return art.image_id;
+    const filtered = (data.data || []).filter(function (art) {
+      return art.image_id && art.is_public_domain !== false;
     });
-    renderArtworks(withImage);
+    renderArtworks(filtered);
 
     emptyMsg.classList.toggle("d-none", grid.children.length > 0);
     updateSummary();
