@@ -1,70 +1,74 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Galería · TP-16</title>
+  <title>Series de TV · TP-16</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&family=Archivo+Narrow:wght@400;600&display=swap" rel="stylesheet">
   <link href="style.css" rel="stylesheet">
 </head>
 <body>
 
-  <header class="gallery-header">
+  <header class="tv-header">
     <div class="container">
-      <h1 class="gallery-title">Galería de obras</h1>
-      <p class="gallery-lead mb-0">
-        Obras de dominio público de la colección del Art Institute of Chicago.
-      </p>
+      <h1 class="tv-title">Cartelera de series</h1>
+      <p class="tv-lead mb-0">Explorá series de TV con datos de la API de TVmaze.</p>
     </div>
   </header>
 
   <main class="container py-4">
 
+    <!-- Buscador -->
     <form id="search-form" class="row g-2 mb-3" role="search">
       <div class="col-12 col-md-8 col-lg-6">
-        <label for="search" class="visually-hidden">Buscar obras</label>
+        <label for="search" class="visually-hidden">Buscar series</label>
         <input id="search" type="search" class="form-control"
-               placeholder="Buscá por tema, artista u objeto (en inglés funciona mejor)" autocomplete="off">
+               placeholder="Buscá una serie por nombre (ej: Friends)" autocomplete="off">
       </div>
       <div class="col-auto">
-        <button type="submit" class="btn btn-gallery">Buscar</button>
+        <button type="submit" class="btn btn-tv">Buscar</button>
+      </div>
+      <div class="col-auto">
+        <button id="reset-btn" type="button" class="btn btn-outline-secondary">Ver todas</button>
       </div>
     </form>
 
-    <div id="categories" class="d-flex flex-wrap gap-2 mb-4" role="group" aria-label="Categorías"></div>
+    <!-- Filtro por género -->
+    <div id="categories" class="d-flex flex-wrap gap-2 mb-4" role="group" aria-label="Géneros"></div>
 
-    <p id="summary" class="summary" aria-live="polite"></p>
+    <p id="summary" class="tv-summary" aria-live="polite"></p>
 
+    <!-- Spinner de carga inicial -->
     <div id="initial-spinner" class="text-center py-5 d-none" role="status">
-      <div class="spinner-border gallery-spinner" style="width:3rem;height:3rem"></div>
-      <p class="mt-3 mb-0">Cargando obras…</p>
+      <div class="spinner-border tv-spinner" style="width:3rem;height:3rem"></div>
+      <p class="mt-3 mb-0">Cargando series…</p>
     </div>
 
+    <!-- Error -->
     <div id="error-box" class="alert alert-danger d-none" role="alert">
       <p id="error-text" class="mb-2"></p>
       <button id="retry-btn" type="button" class="btn btn-sm btn-danger">Reintentar</button>
     </div>
 
-    <div id="grid" class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4"></div>
+    <!-- Grilla de cartas -->
+    <div id="grid" class="row g-4 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-6"></div>
 
     <p id="empty" class="text-center py-5 d-none">
-      No encontramos obras para esa búsqueda. Probá con otra palabra.
+      No encontramos series con esa búsqueda o ese género. Probá con otra.
     </p>
 
     <div class="text-center mt-5">
-      <button id="load-more" type="button" class="btn btn-gallery d-none">
+      <button id="load-more" type="button" class="btn btn-tv d-none">
         <span id="load-more-spinner" class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
-        <span id="load-more-label">Ver más obras</span>
+        <span id="load-more-label">Ver más series</span>
       </button>
     </div>
   </main>
 
+  <!-- Modal de detalle -->
   <div class="modal fade" id="detail-modal" tabindex="-1" aria-labelledby="detail-title" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
       <div class="modal-content">
         <div class="modal-header">
           <h2 class="modal-title fs-4" id="detail-title"></h2>
@@ -75,9 +79,8 @@
     </div>
   </div>
 
-  <footer class="text-center py-4 gallery-footer">
-    TP-16 · Consumo de APIs con la
-    <a href="https://api.artic.edu/docs/" target="_blank" rel="noopener">API del Art Institute of Chicago</a>
+  <footer class="text-center py-4 tv-footer">
+    TP-16 · Consumo de APIs con <a href="https://www.tvmaze.com/api" target="_blank" rel="noopener">TVmaze</a>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
