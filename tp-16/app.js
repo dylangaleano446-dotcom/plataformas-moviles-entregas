@@ -1,7 +1,7 @@
 const API_URL = "https://api.artic.edu/api/v1";
 const DEFAULT_IIIF = "https://www.artic.edu/iiif/2";
 const PAGE_SIZE = 12;
-const LIST_FIELDS = "id,title,artist_display,date_display,image_id,is_public_domain";
+const LIST_FIELDS = "id,title,artist_display,date_display,image_id";
 const DETAIL_FIELDS = "id,title,artist_display,date_display,place_of_origin,medium_display,dimensions,credit_line,description,short_description,image_id";
 
 // Categorias: "label" es lo que ve la persona, "q" es lo que se busca en la API
@@ -70,14 +70,39 @@ async function fetchJSON(url) {
 }
 
 // ---------- Busqueda en la API ----------
-function searchURL(query, page) {
-  const params = new URLSearchParams({
+// Devuelve dos direcciones para pedir lo mismo: la segunda se usa solo si la primera falla
+function searchURLs(query, page) {
+  // Forma 1: la misma que muestra la documentacion de la API
+  const url1 = API_URL + "/artworks/search?q=" + encodeURIComponent(query) +
+    "&page=" + page +
+    "&limit=" + PAGE_SIZE +
+    "&fields=" + LIST_FIELDS +
+    "&query[term][is_public_domain]=true";
+
+  // Forma 2 (respaldo): todos los parametros dentro de un JSON
+  const body = {
     q: query,
     page: page,
     limit: PAGE_SIZE,
-    fields: LIST_FIELDS
-  });
-  return API_URL + "/artworks/search?" + params.toString();
+    fields: LIST_FIELDS.split(","),
+    query: { term: { is_public_domain: true } }
+  };
+  const url2 = API_URL + "/artworks/search?params=" + encodeURIComponent(JSON.stringify(body));
+
+  return [url1, url2];
+}
+
+// Prueba cada direccion en orden y devuelve la primera respuesta correcta
+async function fetchFirstOk(urls) {
+  let lastError;
+  for (const url of urls) {
+    try {
+      return await fetchJSON(url);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 // ---------- Render ----------
@@ -151,26 +176,29 @@ async function loadPage(isFirstPage) {
 
   try {
     const nextPage = isFirstPage ? 1 : state.page + 1;
-    const data = await fetchJSON(searchURL(state.query, nextPage));
-    if (requestId !== state.requestId) return;
+    const data = await fetchFirstOk(searchURLs(state.query, nextPage));
+    if (requestId !== state.requestId) return; // respuesta vieja, se descarta
 
     state.page = data.pagination.current_page;
     state.totalPages = data.pagination.total_pages;
     state.total = data.pagination.total;
     state.iiif = (data.config && data.config.iiif_url) || DEFAULT_IIIF;
 
-    const filtered = (data.data || []).filter(function (art) {
-      return art.image_id && art.is_public_domain !== false;
+    const withImage = data.data.filter(function (art) {
+      return art.image_id;
     });
-    renderArtworks(filtered);
+    renderArtworks(withImage);
 
     emptyMsg.classList.toggle("d-none", grid.children.length > 0);
     updateSummary();
     updateLoadMore();
   } catch (error) {
     if (requestId !== state.requestId) return;
-    errorText.textContent = "No pudimos cargar las obras. " + error.message +
-      ". Revisá tu conexión e intentá de nuevo.";
+    let detail = error.message;
+    if (detail === "Failed to fetch") {
+      detail = "el navegador no pudo conectarse con la API (revisá tu conexión, o si un bloqueador o una extensión la está bloqueando)";
+    }
+    errorText.textContent = "No pudimos cargar las obras: " + detail + ".";
     errorBox.classList.remove("d-none");
   } finally {
     if (requestId === state.requestId) {
