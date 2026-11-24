@@ -1,18 +1,24 @@
-const API_URL = "https://api.artic.edu/api/v1";
-const DEFAULT_IIIF = "https://www.artic.edu/iiif/2";
-const PAGE_SIZE = 12;
-const LIST_FIELDS = "id,title,artist_display,date_display,image_id";
-const DETAIL_FIELDS = "id,title,artist_display,date_display,place_of_origin,medium_display,dimensions,credit_line,description,short_description,image_id";
+const API_URL = "https://api.tvmaze.com";
+const PAGE_SIZE = 24;     // cuántas series se muestran por vez
+const MAX_PAGES_PER_CLICK = 4;
 
-// Categorias: "label" es lo que ve la persona, "q" es lo que se busca en la API
-const CATEGORIES = [
-  { label: "Impresionismo", q: "impressionism" },
-  { label: "Retratos", q: "portrait" },
-  { label: "Paisajes", q: "landscape" },
-  { label: "Arte japonés", q: "japanese print" },
-  { label: "Esculturas", q: "sculpture" },
-  { label: "Gatos", q: "cat" }
+const GENRES = [
+  { label: "Todas", value: "" },
+  { label: "Drama", value: "Drama" },
+  { label: "Comedia", value: "Comedy" },
+  { label: "Acción", value: "Action" },
+  { label: "Ciencia ficción", value: "Science-Fiction" },
+  { label: "Crimen", value: "Crime" },
+  { label: "Terror", value: "Horror" },
+  { label: "Anime", value: "Anime" }
 ];
+
+const STATUS_NAMES = {
+  "Running": "En emisión",
+  "Ended": "Finalizada",
+  "To Be Determined": "A definir",
+  "In Development": "En desarrollo"
+};
 
 // ---------- DOM ----------
 const grid = document.getElementById("grid");
@@ -20,6 +26,7 @@ const summary = document.getElementById("summary");
 const categoriesBox = document.getElementById("categories");
 const searchForm = document.getElementById("search-form");
 const searchInput = document.getElementById("search");
+const resetBtn = document.getElementById("reset-btn");
 const initialSpinner = document.getElementById("initial-spinner");
 const errorBox = document.getElementById("error-box");
 const errorText = document.getElementById("error-text");
@@ -35,11 +42,14 @@ const detailBody = document.getElementById("detail-body");
 
 // ---------- Estado ----------
 const state = {
+  mode: "browse",     // "browse" = listado general, "search" = resultado de búsqueda
   query: "",
-  page: 0,
-  totalPages: 0,
-  total: 0,
-  iiif: DEFAULT_IIIF,
+  genre: "",
+  all: [],            // series ya descargadas
+  byId: {},           // series por id (para el modal)
+  apiPage: 0,         // próxima página del listado general
+  apiDone: false,     // ya no hay más páginas
+  visible: PAGE_SIZE, // cuántas series se muestran
   loading: false,
   requestId: 0
 };
@@ -52,261 +62,336 @@ function escapeHTML(text) {
   });
 }
 
-function imageURL(imageId, width) {
-  return state.iiif + "/" + imageId + "/full/" + width + ",/0/default.jpg";
-}
-
 function htmlToText(html) {
   const doc = new DOMParser().parseFromString(html || "", "text/html");
   return doc.body.textContent.trim();
 }
 
+function secureURL(url) {
+  return String(url || "").replace("http://", "https://");
+}
+
+function posterURL(show, size) {
+  if (!show.image) return "";
+  return secureURL(show.image[size] || show.image.medium || show.image.original);
+}
+
 async function fetchJSON(url) {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error("La API respondió con el estado " + response.status);
+    const error = new Error("La API respondió con el estado " + response.status);
+    error.status = response.status;
+    throw error;
   }
   return response.json();
 }
 
-// ---------- Busqueda en la API ----------
-// Devuelve dos direcciones para pedir lo mismo: la segunda se usa solo si la primera falla
-function searchURLs(query, page) {
-  // Forma 1: la misma que muestra la documentacion de la API
-  const url1 = API_URL + "/artworks/search?q=" + encodeURIComponent(query) +
-    "&page=" + page +
-    "&limit=" + PAGE_SIZE +
-    "&fields=" + LIST_FIELDS +
-    "&query[term][is_public_domain]=true";
-
-  // Forma 2 (respaldo): todos los parametros dentro de un JSON
-  const body = {
-    q: query,
-    page: page,
-    limit: PAGE_SIZE,
-    fields: LIST_FIELDS.split(","),
-    query: { term: { is_public_domain: true } }
-  };
-  const url2 = API_URL + "/artworks/search?params=" + encodeURIComponent(JSON.stringify(body));
-
-  return [url1, url2];
+function genreLabel(value) {
+  for (let i = 0; i < GENRES.length; i++) {
+    if (GENRES[i].value === value) return GENRES[i].label;
+  }
+  return value;
 }
 
-// Prueba cada direccion en orden y devuelve la primera respuesta correcta
-async function fetchFirstOk(urls) {
-  let lastError;
-  for (const url of urls) {
-    try {
-      return await fetchJSON(url);
-    } catch (error) {
-      lastError = error;
+// ---------- Datos ----------
+function addShows(list) {
+  list.forEach(function (show) {
+    if (show && show.image && !state.byId[show.id]) {
+      state.byId[show.id] = show;
+      state.all.push(show);
+    }
+  });
+}
+
+function getFiltered() {
+  return state.all.filter(function (show) {
+    return !state.genre || (show.genres || []).indexOf(state.genre) !== -1;
+  });
+}
+
+async function loadNextApiPage() {
+  try {
+    const list = await fetchJSON(API_URL + "/shows?page=" + state.apiPage);
+    state.apiPage = state.apiPage + 1;
+    addShows(list);
+  } catch (error) {
+    if (error.status === 404) {
+      state.apiDone = true; // no hay más páginas
+    } else {
+      throw error;
     }
   }
-  throw lastError;
+}
+
+// Descarga páginas hasta tener suficientes series para mostrar
+async function fillUntilEnough() {
+  if (state.mode !== "browse") return;
+  let pages = 0;
+  while (getFiltered().length < state.visible && !state.apiDone && pages < MAX_PAGES_PER_CLICK) {
+    await loadNextApiPage();
+    pages++;
+  }
 }
 
 // ---------- Render ----------
-function createCard(art) {
+function createCard(show) {
   const col = document.createElement("div");
   col.className = "col";
-  const title = escapeHTML(art.title || "Sin título");
-  const artist = escapeHTML((art.artist_display || "Artista desconocido").split("\n")[0]);
+  const name = escapeHTML(show.name);
+  const genres = escapeHTML((show.genres || []).slice(0, 3).join(" · "));
+  const rating = show.rating && show.rating.average ? "★ " + show.rating.average : "Sin puntaje";
 
   col.innerHTML =
-    '<article class="art-card">' +
-      '<div class="art-mat">' +
-        '<img src="' + imageURL(art.image_id, 400) + '" alt="' + title + '" loading="lazy">' +
-      '</div>' +
-      '<div class="art-caption">' +
-        '<h2 class="art-title">' + title + '</h2>' +
-        '<p class="art-artist">' + artist + '</p>' +
-        '<p class="art-date">' + escapeHTML(art.date_display || "") + '</p>' +
-        '<button type="button" class="btn btn-outline-gallery btn-sm" data-id="' + art.id + '" ' +
-          'aria-label="Ver más información de ' + title + '">Ver más</button>' +
+    '<article class="show-card">' +
+      '<img class="show-poster" src="' + posterURL(show, "medium") + '" alt="Póster de ' + name + '" loading="lazy">' +
+      '<div class="show-body">' +
+        '<h2 class="show-name">' + name + '</h2>' +
+        '<p class="show-genres mb-1">' + (genres || "Sin género") + '</p>' +
+        '<p class="show-rating">' + rating + '</p>' +
+        '<button type="button" class="btn btn-outline-tv btn-sm w-100" data-id="' + show.id + '" ' +
+          'aria-label="Ver más información de ' + name + '">Ver más</button>' +
       '</div>' +
     '</article>';
   return col;
 }
 
-function renderArtworks(list) {
+function render() {
+  const filtered = getFiltered();
+  const shown = filtered.slice(0, state.visible);
+
+  grid.innerHTML = "";
   const fragment = document.createDocumentFragment();
-  list.forEach(function (art) {
-    fragment.appendChild(createCard(art));
+  shown.forEach(function (show) {
+    fragment.appendChild(createCard(show));
   });
   grid.appendChild(fragment);
-}
 
-function updateSummary() {
-  const shown = grid.children.length;
-  if (state.total) {
-    summary.textContent = "Mostrando " + shown + " obras de " +
-      state.total.toLocaleString("es-AR") + " para “" + state.query + "”";
-  } else {
-    summary.textContent = "";
-  }
-}
+  emptyMsg.classList.toggle("d-none", shown.length > 0 || state.loading);
 
-function updateLoadMore() {
-  loadMoreBtn.classList.toggle("d-none", state.page >= state.totalPages);
+  let text = "Mostrando " + shown.length + " series";
+  if (state.mode === "search") text += " para “" + state.query + "”";
+  if (state.genre) text += " · género: " + genreLabel(state.genre);
+  summary.textContent = shown.length ? text : "";
+
+  const hasMore = filtered.length > state.visible || (state.mode === "browse" && !state.apiDone);
+  loadMoreBtn.classList.toggle("d-none", !hasMore);
 }
 
 function setLoadMoreLoading(isLoading) {
   loadMoreBtn.disabled = isLoading;
   loadMoreSpinner.classList.toggle("d-none", !isLoading);
-  loadMoreLabel.textContent = isLoading ? "Cargando…" : "Ver más obras";
+  loadMoreLabel.textContent = isLoading ? "Cargando…" : "Ver más series";
 }
 
-// ---------- Carga ----------
-async function loadPage(isFirstPage) {
-  if (state.loading && !isFirstPage) return;
+function showError(error) {
+  let detail = error.message;
+  if (detail === "Failed to fetch") {
+    detail = "el navegador no pudo conectarse con la API (revisá tu conexión, o si un bloqueador o una extensión la está bloqueando)";
+  }
+  errorText.textContent = "No pudimos cargar las series: " + detail + ".";
+  errorBox.classList.remove("d-none");
+}
+
+// ---------- Acciones ----------
+async function startBrowse() {
   state.requestId = state.requestId + 1;
   const requestId = state.requestId;
+  state.mode = "browse";
+  state.query = "";
+  state.genre = "";
+  setActiveChip("");
+  state.all = [];
+  state.byId = {};
+  state.apiPage = 0;
+  state.apiDone = false;
+  state.visible = PAGE_SIZE;
   state.loading = true;
-  errorBox.classList.add("d-none");
 
-  if (isFirstPage) {
-    grid.innerHTML = "";
-    emptyMsg.classList.add("d-none");
-    loadMoreBtn.classList.add("d-none");
-    summary.textContent = "";
-    initialSpinner.classList.remove("d-none");
-  } else {
-    setLoadMoreLoading(true);
-  }
+  errorBox.classList.add("d-none");
+  grid.innerHTML = "";
+  summary.textContent = "";
+  emptyMsg.classList.add("d-none");
+  loadMoreBtn.classList.add("d-none");
+  initialSpinner.classList.remove("d-none");
 
   try {
-    const nextPage = isFirstPage ? 1 : state.page + 1;
-    const data = await fetchFirstOk(searchURLs(state.query, nextPage));
-    if (requestId !== state.requestId) return; // respuesta vieja, se descarta
-
-    state.page = data.pagination.current_page;
-    state.totalPages = data.pagination.total_pages;
-    state.total = data.pagination.total;
-    state.iiif = (data.config && data.config.iiif_url) || DEFAULT_IIIF;
-
-    const withImage = data.data.filter(function (art) {
-      return art.image_id;
-    });
-    renderArtworks(withImage);
-
-    emptyMsg.classList.toggle("d-none", grid.children.length > 0);
-    updateSummary();
-    updateLoadMore();
+    await fillUntilEnough();
+    if (requestId !== state.requestId) return;
   } catch (error) {
     if (requestId !== state.requestId) return;
-    let detail = error.message;
-    if (detail === "Failed to fetch") {
-      detail = "el navegador no pudo conectarse con la API (revisá tu conexión, o si un bloqueador o una extensión la está bloqueando)";
-    }
-    errorText.textContent = "No pudimos cargar las obras: " + detail + ".";
-    errorBox.classList.remove("d-none");
+    showError(error);
   } finally {
     if (requestId === state.requestId) {
       state.loading = false;
       initialSpinner.classList.add("d-none");
-      setLoadMoreLoading(false);
+      render();
     }
   }
 }
 
-function startSearch(query) {
-  state.query = query.trim();
-  if (!state.query) return;
-  state.page = 0;
-  state.totalPages = 0;
-  state.total = 0;
-  loadPage(true);
+async function startSearch(query) {
+  state.requestId = state.requestId + 1;
+  const requestId = state.requestId;
+  state.mode = "search";
+  state.query = query;
+  state.genre = "";
+  setActiveChip("");
+  state.all = [];
+  state.byId = {};
+  state.apiDone = true;
+  state.visible = PAGE_SIZE;
+  state.loading = true;
+
+  errorBox.classList.add("d-none");
+  grid.innerHTML = "";
+  summary.textContent = "";
+  emptyMsg.classList.add("d-none");
+  loadMoreBtn.classList.add("d-none");
+  initialSpinner.classList.remove("d-none");
+
+  try {
+    const results = await fetchJSON(API_URL + "/search/shows?q=" + encodeURIComponent(query));
+    if (requestId !== state.requestId) return;
+    addShows(results.map(function (item) {
+      return item.show;
+    }));
+  } catch (error) {
+    if (requestId !== state.requestId) return;
+    showError(error);
+  } finally {
+    if (requestId === state.requestId) {
+      state.loading = false;
+      initialSpinner.classList.add("d-none");
+      render();
+    }
+  }
+}
+
+async function loadMore() {
+  if (state.loading) return;
+  state.loading = true;
+  errorBox.classList.add("d-none");
+  setLoadMoreLoading(true);
+  state.visible = state.visible + PAGE_SIZE;
+
+  try {
+    await fillUntilEnough();
+  } catch (error) {
+    showError(error);
+  } finally {
+    state.loading = false;
+    setLoadMoreLoading(false);
+    render();
+  }
+}
+
+async function changeGenre(value) {
+  if (state.loading) return;
+  state.genre = value;
+  state.visible = PAGE_SIZE;
+  setActiveChip(value);
+
+  state.loading = true;
+  errorBox.classList.add("d-none");
+  render();
+  initialSpinner.classList.remove("d-none");
+  try {
+    await fillUntilEnough();
+  } catch (error) {
+    showError(error);
+  } finally {
+    state.loading = false;
+    initialSpinner.classList.add("d-none");
+    render();
+  }
 }
 
 // ---------- Modal de detalle ----------
-async function openDetail(id) {
-  detailTitle.textContent = "Cargando…";
+function openDetail(id) {
+  const show = state.byId[id];
+  if (!show) return;
+
+  const network = (show.network && show.network.name) || (show.webChannel && show.webChannel.name) || "";
+  const rows = [
+    ["Géneros", (show.genres || []).join(", ")],
+    ["Estado", STATUS_NAMES[show.status] || show.status],
+    ["Estreno", show.premiered],
+    ["Finalización", show.ended],
+    ["Idioma", show.language],
+    ["Emisión", network],
+    ["Duración", show.runtime ? show.runtime + " min" : ""],
+    ["Puntaje", show.rating && show.rating.average ? "★ " + show.rating.average + " / 10" : ""]
+  ];
+
+  let list = "";
+  rows.forEach(function (row) {
+    if (row[1]) {
+      list += "<dt>" + row[0] + "</dt><dd>" + escapeHTML(row[1]) + "</dd>";
+    }
+  });
+
+  const summaryText = htmlToText(show.summary);
+  let summaryHTML = "";
+  if (summaryText) {
+    summaryHTML =
+      '<h3 class="fs-6 fw-bold mt-4">Sinopsis</h3>' +
+      '<p class="detail-text">' + escapeHTML(summaryText) + '</p>';
+  }
+
+  let linkHTML = "";
+  if (show.officialSite && String(show.officialSite).indexOf("http") === 0) {
+    linkHTML = '<a class="btn btn-outline-tv btn-sm" href="' + escapeHTML(show.officialSite) +
+      '" target="_blank" rel="noopener">Sitio oficial</a>';
+  }
+
+  detailTitle.textContent = show.name;
   detailBody.innerHTML =
-    '<div class="text-center py-5" role="status">' +
-      '<div class="spinner-border gallery-spinner"></div>' +
+    '<div class="row g-4">' +
+      '<div class="col-12 col-md-5 text-center">' +
+        '<img class="detail-poster" src="' + posterURL(show, "original") + '" alt="Póster de ' + escapeHTML(show.name) + '">' +
+      '</div>' +
+      '<div class="col-12 col-md-7">' +
+        '<dl class="detail-list">' + list + '</dl>' +
+        summaryHTML +
+        linkHTML +
+      '</div>' +
     '</div>';
   modal.show();
-
-  try {
-    const result = await fetchJSON(API_URL + "/artworks/" + id + "?fields=" + DETAIL_FIELDS);
-    const data = result.data;
-    const description = htmlToText(data.description || data.short_description || "");
-
-    const fields = [
-      ["Artista", data.artist_display],
-      ["Fecha", data.date_display],
-      ["Origen", data.place_of_origin],
-      ["Técnica", data.medium_display],
-      ["Dimensiones", data.dimensions],
-      ["Crédito", data.credit_line]
-    ];
-
-    let rows = "";
-    fields.forEach(function (field) {
-      if (field[1]) {
-        rows += "<dt>" + field[0] + "</dt><dd>" + escapeHTML(field[1]) + "</dd>";
-      }
-    });
-
-    let descriptionHTML = "";
-    if (description) {
-      descriptionHTML =
-        '<h3 class="fs-6 fw-bold mt-4">Descripción</h3>' +
-        '<p class="detail-text">' + escapeHTML(description) + '</p>';
-    }
-
-    detailTitle.textContent = data.title || "Sin título";
-    detailBody.innerHTML =
-      '<div class="row g-4">' +
-        '<div class="col-12 col-lg-6">' +
-          '<div class="detail-mat">' +
-            '<img src="' + imageURL(data.image_id, 843) + '" alt="' + escapeHTML(data.title) + '">' +
-          '</div>' +
-        '</div>' +
-        '<div class="col-12 col-lg-6">' +
-          '<dl class="detail-list">' + rows + '</dl>' +
-          descriptionHTML +
-        '</div>' +
-      '</div>';
-  } catch (error) {
-    detailTitle.textContent = "No se pudo cargar la obra";
-    detailBody.innerHTML = '<div class="alert alert-danger mb-0">' + escapeHTML(error.message) + '</div>';
-  }
 }
 
-// ---------- Categorias ----------
-function setActiveChip(label) {
+// ---------- Géneros ----------
+function setActiveChip(value) {
   categoriesBox.querySelectorAll(".chip").forEach(function (chip) {
-    const active = chip.dataset.label === label;
+    const active = chip.dataset.value === value;
     chip.classList.toggle("active", active);
     chip.setAttribute("aria-pressed", active);
   });
 }
 
-CATEGORIES.forEach(function (category) {
+GENRES.forEach(function (genre) {
   const chip = document.createElement("button");
   chip.type = "button";
   chip.className = "chip";
-  chip.textContent = category.label;
-  chip.dataset.label = category.label;
-  chip.dataset.q = category.q;
+  chip.textContent = genre.label;
+  chip.dataset.value = genre.value;
   categoriesBox.appendChild(chip);
 });
 
 // ---------- Eventos ----------
 categoriesBox.addEventListener("click", function (event) {
   const chip = event.target.closest(".chip");
-  if (!chip) return;
-  searchInput.value = "";
-  setActiveChip(chip.dataset.label);
-  startSearch(chip.dataset.q);
+  if (chip) changeGenre(chip.dataset.value);
 });
 
 searchForm.addEventListener("submit", function (event) {
   event.preventDefault();
-  if (!searchInput.value.trim()) return;
-  setActiveChip(null);
-  startSearch(searchInput.value);
+  const query = searchInput.value.trim();
+  if (query) startSearch(query);
+});
+
+resetBtn.addEventListener("click", function () {
+  searchInput.value = "";
+  startBrowse();
 });
 
 grid.addEventListener("click", function (event) {
@@ -314,14 +399,16 @@ grid.addEventListener("click", function (event) {
   if (button) openDetail(button.dataset.id);
 });
 
-loadMoreBtn.addEventListener("click", function () {
-  loadPage(false);
-});
+loadMoreBtn.addEventListener("click", loadMore);
 
 retryBtn.addEventListener("click", function () {
-  loadPage(state.page === 0);
+  if (state.mode === "search") {
+    startSearch(state.query);
+  } else {
+    startBrowse();
+  }
 });
 
 // ---------- Inicio ----------
-setActiveChip(CATEGORIES[0].label);
-startSearch(CATEGORIES[0].q);
+setActiveChip("");
+startBrowse();
